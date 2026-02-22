@@ -9,6 +9,7 @@
 </p>
 
 <p align="center">
+  <img alt="WIP" src="https://img.shields.io/badge/Status-WIP-FF8C00?style=for-the-badge" />
   <a href="https://go.dev/"><img alt="Go" src="https://img.shields.io/badge/Go-00ADD8?style=for-the-badge&logo=go&logoColor=white" /></a>
   <a href="https://onnxruntime.ai/"><img alt="ONNX Runtime" src="https://img.shields.io/badge/ONNX_Runtime-005CFC?style=for-the-badge" /></a>
   <a href="https://opensource.org/licenses/MIT"><img alt="License" src="https://img.shields.io/badge/License-MIT-F28D1A?style=for-the-badge" /></a>
@@ -31,7 +32,7 @@
 - **Semantic Chunking** based on newline and paragraph boundaries
 - **BubbleTea TUI** with real-time debounced search
 - **File watcher** for incremental re-indexing
-- Flat binary storage — no SQLite, no vector DB
+- **Flat binary storage** — no SQLite, no vector DB
 
 
 ## Architecture
