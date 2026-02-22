@@ -37,7 +37,7 @@
 
 ## Architecture
 
-[sift-architecture diagram](./assets/architecture.png)
+![sift-architecture diagram](./assets/architecture.png)
 ```
   Components
   ──────────
