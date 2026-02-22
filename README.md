@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="./assets/sift-banner.png" alt="sift banner" width="100%">
+</p>
+
 <h1 align="center">
   sift
 </h1>
