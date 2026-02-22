@@ -101,6 +101,18 @@ make build            # Produces ./sift binary
 ./sift --ort-lib /usr/lib/libonnxruntime.so index ./docs
 ```
 
+### Configuration
+
+`sift` can be configured persistently by creating a `.sift.toml` file in the directory where you run the tool. This avoids having to pass flags like `--threads` every time.
+
+```toml
+# .sift.toml example
+model-dir = "./models"
+ort-lib = "./lib/onnxruntime.so"
+threads = 0              # 0 = auto-detect based on CPU cores
+max-file-kb = 512        # skip indexing files larger than this
+```
+
 ### TUI Keybindings
 
 | Key | Action |

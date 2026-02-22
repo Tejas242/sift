@@ -1,0 +1,7 @@
+# .sift.toml example
+# Place this file in your project root to configure sift persistently.
+
+model-dir = "./models"
+ort-lib = "./lib/onnxruntime.so"
+threads = 0              # 0 = auto-detect based on CPU cores
+max-file-kb = 512        # skip indexing files larger than this
