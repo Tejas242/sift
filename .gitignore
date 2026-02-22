@@ -1,7 +1,6 @@
 models/
 lib/
 .sift/
-sift
 /sift
 *.bin
 *.test
