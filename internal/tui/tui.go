@@ -123,11 +123,10 @@ type Model struct {
 	stats      *index.Stats
 	debounceID int
 	lastQuery  string
-	rerank     bool
 }
 
 // New creates a new TUI model backed by the given index.
-func New(idx *index.Index, rerank bool) Model {
+func New(idx *index.Index) Model {
 	ti := textinput.New()
 	ti.Placeholder = "search your codebase…"
 	ti.Focus()
@@ -138,10 +137,9 @@ func New(idx *index.Index, rerank bool) Model {
 	ti.TextStyle = lipgloss.NewStyle().Foreground(colorText)
 
 	return Model{
-		idx:    idx,
-		input:  ti,
-		mode:   modeSearch,
-		rerank: rerank,
+		idx:   idx,
+		input: ti,
+		mode:  modeSearch,
 	}
 }
 
@@ -182,16 +180,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 
-		case "ctrl+r":
-			m.rerank = !m.rerank
-			// Re-trigger search if we have a query
-			q := strings.TrimSpace(m.input.Value())
-			if q != "" {
-				m.searching = true
-				return m, searchCmd(m.idx, q, m.rerank)
-			}
-			return m, nil
-
 		case "esc":
 			m.mode = modeSearch
 			m.input.Focus()
@@ -228,7 +216,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.searching = true
 			m.lastQuery = msg.query
-			return m, searchCmd(m.idx, msg.query, m.rerank)
+			return m, searchCmd(m.idx, msg.query)
 		}
 		return m, nil
 
@@ -378,16 +366,7 @@ func (m *Model) renderStatusBar(b *strings.Builder) {
 		left = sDim.Render("  no results")
 	}
 
-	rerankStatus := sDim.Render("rerank:off")
-	if m.rerank {
-		if m.idx.HasReranker() {
-			rerankStatus = sAccent.Render("rerank:on")
-		} else {
-			rerankStatus = sErr.Render("rerank:missing model")
-		}
-	}
-
-	right := sHint.Render(rerankStatus + "  ^r toggle  ^i info  esc clear  ↑↓ nav  enter open  ^q quit  ")
+	right := sHint.Render("  ^i info  esc clear  ↑↓ nav  enter open  ^q quit  ")
 	fmt.Fprint(b, padBetween(left, right, m.width))
 }
 
@@ -431,9 +410,9 @@ func debounceCmd(query string, id int, delay time.Duration) tea.Cmd {
 	}
 }
 
-func searchCmd(idx *index.Index, query string, rerank bool) tea.Cmd {
+func searchCmd(idx *index.Index, query string) tea.Cmd {
 	return func() tea.Msg {
-		results, err := idx.Search(query, 10, rerank)
+		results, err := idx.Search(query, 10)
 		if err != nil {
 			return errMsg{err}
 		}

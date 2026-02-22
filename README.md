@@ -26,7 +26,6 @@
 ## Features
 
 - **BGE-small-en-v1.5** embeddings via ONNX Runtime — CPU only, fast on modest hardware
-- **bge-reranker-base** cross-encoder for high-precision, post-retrieval reranking
 - **HNSW index** implemented from scratch in pure Go (M=16, ef=50)
 - **Hybrid Keyword Boosting** for exact-match accuracy combined with semantic understanding
 - **Semantic Chunking** based on newline and paragraph boundaries
@@ -53,26 +52,17 @@
   │                    .sift/hnsw.bin   ◀─────────────────  persist ────────┘          │
   └────────────────────────────────────────────────────────────────────────────────────┘
 
-  ┌─────────────────────────────── QUERY ──────────────────────────────────────┐
-  │                                                                            │
-  │  "query text"      ┌──────────────┐  384-dim    ┌──────────┐  top-k IDs    │
-  │   ────────────────▶│  Embedder    │──vec───────▶│   HNSW   │─────────┐     │
-  │  (+ BGE prefix)    │ BGE-small    │             │  Search  │         │     │
-  │                    │ ONNX · CPU   │             │  ef=50   │         ▼     │
-  │                    └──────────────┘             └──────────┘   .sift/meta.json
-  │                                                                      │     │
-  │  ┌───────────────────────────────────────────────────────────────────┴──┐  │
-  │  │  ┌──────────────┐                                                    │  │
-  │  │  │   Reranker   │◀── text snippets + query                           │  │
-  │  │  │ Cross-Encoder│                                                    │  │
-  │  │  └──────┬───────┘                                                    │  │
-  │  │         │ logits                                                     │  │
-  │  │         ▼                                                            │  │
-  │  │   Final Ranking (Deduplicated)                                       │  │
-  │  └─────────┬────────────────────────────────────────────────────────────┘  │
-  │            ▼                                                               │
-  │     Terminal / TUI ◀── result cards (path · line · score · snip)           │
-  └────────────────────────────────────────────────────────────────────────────┘
+  ┌─────────────────────────────── QUERY ───────────────────────────────────────────┐
+  │                                                                               │
+  │  "how does auth    ┌──────────────┐  384-dim   ┌──────────┐  top-k IDs        │
+  │   work?" ─────────▶│  Embedder    │──vec───────▶│   HNSW   │──────────┐       │
+  │  (+ BGE prefix)    │ BGE-small    │             │  Search  │          │       │
+  │                    │ ONNX · CPU   │             │  ef=50   │          ▼       │
+  │                    └──────────────┘             └──────────┘   .sift/meta.json│
+  │                                                                      │        │
+  │                                                                      ▼        │
+  │                         Terminal / TUI ◀── result cards (path · score · snip) │
+  └───────────────────────────────────────────────────────────────────────────────┘
 
   Components
   ──────────
@@ -102,7 +92,7 @@
 git clone https://github.com/tejas242/sift
 cd sift
 make download-ort     # Downloads ONNX Runtime v1.24.2 shared library → lib/onnxruntime.so (~22MB)
-make download-model   # Downloads BGE-small-en-v1.5 ONNX model + BGE-reranker-base ONNX model → models/ (~150MB)
+make download-model   # Downloads BGE-small-en-v1.5 ONNX model → models/ (~130MB)
 make build            # Produces ./sift binary
 ```
 
@@ -206,7 +196,6 @@ There is no vector database dependency. Vectors are embedded and inserted direct
 - **Search**: HNSW at ef=50 over 10k nodes ≈ 5ms graph traversal + ~30ms query embedding
 - **Memory**: full HNSW graph stays in RAM after load — practical up to ~500k 384-dim vectors before
   exceeding 1GB; the embedder keeps the model loaded for the process lifetime
-- **Reranker (Cross-Encoder)**: Runs exclusively on **1 CPU thread** to prevent UI starvation. On older laptops, reranking 20 candidates may take 15–45 seconds depending on clock speeds, but gives a massive precision boost for ambiguous queries.
 - **Startup**: model + tokenizer load in ~200–400ms on first run; subsequent commands in the same
   process are instant
 
@@ -242,7 +231,7 @@ These are meaningful improvements that would make sift genuinely excellent:
 | **Neovim plugin** | `:Sift` picker via vim.fn.jobstart; fzf-like UX inside the editor | Hard |
 | **Multiple index roots** | Maintain separate `.sift/` per project, merge results across them | Medium |
 | ~~**Cross-chunk dedup**~~ | ~~Don't surface two chunks from the same file in top-3 results~~ | Done |
-| ~~**`--rerank` flag**~~ | ~~Post-process top-20 with a BGE cross-encoder reranker (big accuracy boost)~~ | Done |
+| **`--rerank` flag** | Post-process top-50 with a BGE cross-encoder reranker (big accuracy boost) | Hard |
 | ~~**Shell completions**~~ | ~~`sift completion bash/zsh/fish` via Cobra's built-in support~~ | Done |
 
 > Some of these (skip-cache, line numbers, hybrid scoring) would have the biggest UX impact

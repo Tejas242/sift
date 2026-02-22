@@ -34,10 +34,9 @@ const (
 
 // Embedder wraps an ONNX session and a HuggingFace tokenizer.
 type Embedder struct {
-	session       *ort.DynamicAdvancedSession
-	rerankSession *ort.DynamicAdvancedSession
-	tokenizer     *tokenizers.Tokenizer
-	batchSize     int
+	session   *ort.DynamicAdvancedSession
+	tokenizer *tokenizers.Tokenizer
+	batchSize int
 }
 
 // New loads the ONNX model and tokenizer from modelDir.
@@ -100,42 +99,16 @@ func New(modelDir, ortLibPath string, numThreads int) (*Embedder, error) {
 		return nil, fmt.Errorf("create session: %w", err)
 	}
 
-	rerankPath := filepath.Join(modelDir, "bge-reranker-base.onnx")
-	var rerankSession *ort.DynamicAdvancedSession
-	if _, err := os.Stat(rerankPath); err == nil {
-		// Create a separate, single-threaded session options object for the reranker.
-		// Reranking is extremely heavy; if it uses all cores, it will starve the TUI thread.
-		rerankOpts, err := ort.NewSessionOptions()
-		if err == nil {
-			defer rerankOpts.Destroy()
-			rerankOpts.SetIntraOpNumThreads(1)
-			rerankOpts.SetInterOpNumThreads(1)
-
-			rerankInputNames := []string{"input_ids", "attention_mask"}
-			rerankOutputNames := []string{"logits"}
-			rs, err := ort.NewDynamicAdvancedSession(rerankPath, rerankInputNames, rerankOutputNames, rerankOpts)
-			if err != nil {
-				session.Destroy()
-				return nil, fmt.Errorf("create rerank session: %w", err)
-			}
-			rerankSession = rs
-		}
-	}
-
 	tk, err := tokenizers.FromFile(tokenPath)
 	if err != nil {
 		session.Destroy()
-		if rerankSession != nil {
-			rerankSession.Destroy()
-		}
 		return nil, fmt.Errorf("load tokenizer: %w", err)
 	}
 
 	return &Embedder{
-		session:       session,
-		rerankSession: rerankSession,
-		tokenizer:     tk,
-		batchSize:     defaultBatchSize,
+		session:   session,
+		tokenizer: tk,
+		batchSize: defaultBatchSize,
 	}, nil
 }
 
@@ -143,9 +116,6 @@ func New(modelDir, ortLibPath string, numThreads int) (*Embedder, error) {
 func (e *Embedder) Close() {
 	if e.session != nil {
 		e.session.Destroy()
-	}
-	if e.rerankSession != nil {
-		e.rerankSession.Destroy()
 	}
 	if e.tokenizer != nil {
 		e.tokenizer.Close()
@@ -310,139 +280,6 @@ func (e *Embedder) embedBatch(texts []string) ([][]float32, error) {
 	}
 
 	return embeddings, nil
-}
-
-// HasReranker returns true if the reranker model was loaded successfully.
-func (e *Embedder) HasReranker() bool {
-	return e.rerankSession != nil
-}
-
-// Rerank scores a list of documents against a query using the cross-encoder.
-func (e *Embedder) Rerank(query string, texts []string) ([]float32, error) {
-	if e.rerankSession == nil {
-		return nil, fmt.Errorf("reranker model not loaded")
-	}
-
-	batchSize := len(texts)
-	if batchSize == 0 {
-		return nil, nil
-	}
-
-	// Create query + doc pairs.
-	// BGE-reranker-base uses an XLM-Roberta/BERT architecture.
-	// We concatenate with a space/newline and let the transformer attend across them.
-	scores := make([]float32, batchSize)
-
-	// Process in small batches. A large batch size (like 8) with seq_len up to 512
-	// completely thrashes the CPU cache for a Base-sized model. Batch size 1 is much faster
-	// on typical consumer CPUs by keeping memory footprint inside the L3 cache.
-	rerankBatchSize := 1
-	for i := 0; i < batchSize; i += rerankBatchSize {
-		end := i + rerankBatchSize
-		if end > batchSize {
-			end = batchSize
-		}
-
-		batchScores, err := e.rerankBatch(query, texts[i:end])
-		if err != nil {
-			return nil, fmt.Errorf("rerank batch [%d:%d]: %w", i, end, err)
-		}
-		copy(scores[i:end], batchScores)
-	}
-
-	return scores, nil
-}
-
-// rerankBatch runs a single ONNX inference call for the reranker.
-func (e *Embedder) rerankBatch(query string, texts []string) ([]float32, error) {
-	batchSize := len(texts)
-	all := make([]encoded, batchSize)
-	maxLen := 0
-
-	for i, text := range texts {
-		// Concatenate query and text. The model attends across the whole sequence.
-		// A standard separator like \n\n is generally robust.
-		pair := query + "\n\n" + text
-
-		enc := e.tokenizer.EncodeWithOptions(
-			pair,
-			true,
-			tokenizers.WithReturnAttentionMask(),
-		)
-		ids := enc.IDs
-		// Reranker can take longer sequences, up to 512. However, for a CPU-bound 278M parameter model,
-		// processing 512 tokens is exceptionally slow. Since our chunks are bounded
-		// to 256 words anyway, we strictly cap token sequence at 256 to slash inference time
-		// cleanly by half without sacrificing major context.
-		rerankMaxSeqLen := 256
-		if len(ids) > rerankMaxSeqLen {
-			ids = ids[:rerankMaxSeqLen]
-		}
-		ids64 := make([]int64, len(ids))
-		mask64 := make([]int64, len(ids))
-		for j, v := range ids {
-			ids64[j] = int64(v)
-			mask64[j] = 1
-		}
-		if len(enc.AttentionMask) >= len(ids) {
-			for j := range ids64 {
-				mask64[j] = int64(enc.AttentionMask[j])
-			}
-		}
-		all[i] = encoded{ids: ids64, mask: mask64}
-		if len(ids64) > maxLen {
-			maxLen = len(ids64)
-		}
-	}
-
-	if maxLen == 0 {
-		return nil, fmt.Errorf("all texts tokenized to zero length")
-	}
-
-	flatIDs := make([]int64, batchSize*maxLen)
-	flatMask := make([]int64, batchSize*maxLen)
-	for i, enc := range all {
-		copy(flatIDs[i*maxLen:], enc.ids)
-		copy(flatMask[i*maxLen:], enc.mask)
-	}
-	shape := ort.NewShape(int64(batchSize), int64(maxLen))
-
-	inputIDs, err := ort.NewTensor(shape, flatIDs)
-	if err != nil {
-		return nil, fmt.Errorf("input_ids tensor: %w", err)
-	}
-	defer inputIDs.Destroy()
-
-	attnMask, err := ort.NewTensor(shape, flatMask)
-	if err != nil {
-		return nil, fmt.Errorf("attention_mask tensor: %w", err)
-	}
-	defer attnMask.Destroy()
-
-	inputs := []ort.Value{inputIDs, attnMask}
-	outputs := []ort.Value{nil}
-	if err := e.rerankSession.Run(inputs, outputs); err != nil {
-		return nil, fmt.Errorf("ort run: %w", err)
-	}
-	defer func() {
-		if outputs[0] != nil {
-			outputs[0].Destroy()
-		}
-	}()
-
-	logitsTensor, ok := outputs[0].(*ort.Tensor[float32])
-	if !ok {
-		return nil, fmt.Errorf("unexpected output type (want *Tensor[float32])")
-	}
-	logits := logitsTensor.GetData()
-
-	// The output shape is [batch_size, 1]
-	scores := make([]float32, batchSize)
-	for i := 0; i < batchSize; i++ {
-		scores[i] = logits[i]
-	}
-
-	return scores, nil
 }
 
 // BenchmarkSingle embeds a single short text and returns phase timings for

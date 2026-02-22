@@ -231,15 +231,9 @@ func (idx *Index) AddFileCtx(ctx context.Context, path string) (skipped bool, er
 	return false, nil
 }
 
-// HasReranker returns true if the cross-encoder model is loaded.
-func (idx *Index) HasReranker() bool {
-	return idx.embedder.HasReranker()
-}
-
 // Search embeds query with the BGE instruction prefix and returns the top-k most similar chunks.
 // It performs cross-chunk deduplication: it will not return two chunks from the same file.
-// If rerank is true and a cross-encoder is loaded, it reranks the top results.
-func (idx *Index) Search(query string, k int, rerank bool) ([]SearchResult, error) {
+func (idx *Index) Search(query string, k int) ([]SearchResult, error) {
 	queryVec, err := idx.embedder.EmbedQuery(query)
 	if err != nil {
 		return nil, fmt.Errorf("embed query: %w", err)
@@ -297,39 +291,10 @@ func (idx *Index) Search(query string, k int, rerank bool) ([]SearchResult, erro
 		reranked = append(reranked, scoredHit{meta: meta, score: score, text: chunkText})
 	}
 
-	// Sort by hybrid bi-encoder + keyword score first
+	// Sort by hybrid bi-encoder + keyword score
 	sort.Slice(reranked, func(i, j int) bool {
 		return reranked[i].score > reranked[j].score
 	})
-
-	if rerank && idx.embedder.HasReranker() && len(reranked) > 0 {
-		// Cap reranking to top 20 candidates to save CPU
-		if len(reranked) > 20 {
-			reranked = reranked[:20]
-		}
-
-		texts := make([]string, len(reranked))
-		for i, h := range reranked {
-			texts[i] = h.text
-		}
-
-		rerankScores, err := idx.embedder.Rerank(query, texts)
-		if err == nil && len(rerankScores) == len(reranked) {
-			for i := range reranked {
-				// We replace the score entirely with the cross-encoder logit score,
-				// which is highly calibrated.
-				reranked[i].score = rerankScores[i]
-			}
-			// Re-sort based on the new rigorous cross-encoder scores
-			sort.Slice(reranked, func(i, j int) bool {
-				return reranked[i].score > reranked[j].score
-			})
-		} else {
-			fmt.Fprintf(os.Stderr, "rerank failed (%v), falling back to bi-encoder\n", err)
-		}
-	} else if !rerank {
-		// Already sorted above, nothing more to do
-	}
 
 	results := make([]SearchResult, 0, k)
 	seen := make(map[string]bool)
