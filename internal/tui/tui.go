@@ -25,7 +25,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/screenager/sift/internal/index"
+	"github.com/tejas242/sift/internal/index"
 )
 
 // ── Palette ──────────────────────────────────────────────────────────────────

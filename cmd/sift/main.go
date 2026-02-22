@@ -16,10 +16,10 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"github.com/spf13/cobra"
 
-	"github.com/screenager/sift/internal/embed"
-	"github.com/screenager/sift/internal/index"
-	"github.com/screenager/sift/internal/tui"
-	"github.com/screenager/sift/internal/watcher"
+	"github.com/tejas242/sift/internal/embed"
+	"github.com/tejas242/sift/internal/index"
+	"github.com/tejas242/sift/internal/tui"
+	"github.com/tejas242/sift/internal/watcher"
 )
 
 var (

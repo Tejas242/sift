@@ -14,9 +14,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/screenager/sift/internal/chunker"
-	"github.com/screenager/sift/internal/embed"
-	"github.com/screenager/sift/internal/hnsw"
+	"github.com/tejas242/sift/internal/chunker"
+	"github.com/tejas242/sift/internal/embed"
+	"github.com/tejas242/sift/internal/hnsw"
 )
 
 const (

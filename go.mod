@@ -1,4 +1,4 @@
-module github.com/screenager/sift
+module github.com/tejas242/sift
 
 go 1.25.6
 

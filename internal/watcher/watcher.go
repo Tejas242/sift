@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/screenager/sift/internal/chunker"
-	"github.com/screenager/sift/internal/index"
+	"github.com/tejas242/sift/internal/chunker"
+	"github.com/tejas242/sift/internal/index"
 )
 
 // Watcher watches a directory tree for changes and updates the index.

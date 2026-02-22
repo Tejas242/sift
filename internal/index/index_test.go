@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/screenager/sift/internal/hnsw"
+	"github.com/tejas242/sift/internal/hnsw"
 )
 
 // TestHNSWRecallSmokeTest exercises the HNSW implementation used by the index.
