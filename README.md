@@ -9,9 +9,9 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/screenager/sift/releases"><img alt="Version" src="https://img.shields.io/github/v/release/screenager/sift?style=flat-square&color=7C6AF7" /></a>
-  <a href="https://goreportcard.com/report/github.com/screenager/sift"><img alt="Go Report Card" src="https://goreportcard.com/badge/github.com/screenager/sift?style=flat-square" /></a>
-  <a href="https://opensource.org/licenses/MIT"><img alt="License" src="https://img.shields.io/badge/License-MIT-7C6AF7?style=flat-square" /></a>
+  <a href="https://go.dev/"><img alt="Go" src="https://img.shields.io/badge/Go-00ADD8?style=for-the-badge&logo=go&logoColor=white" /></a>
+  <a href="https://onnxruntime.ai/"><img alt="ONNX Runtime" src="https://img.shields.io/badge/ONNX_Runtime-005CFC?style=for-the-badge" /></a>
+  <a href="https://opensource.org/licenses/MIT"><img alt="License" src="https://img.shields.io/badge/License-MIT-F28D1A?style=for-the-badge" /></a>
 </p>
 
 <p align="center">
@@ -233,6 +233,3 @@ These are meaningful improvements that would make sift genuinely excellent:
 | ~~**Cross-chunk dedup**~~ | ~~Don't surface two chunks from the same file in top-3 results~~ | Done |
 | **`--rerank` flag** | Post-process top-50 with a BGE cross-encoder reranker (big accuracy boost) | Hard |
 | ~~**Shell completions**~~ | ~~`sift completion bash/zsh/fish` via Cobra's built-in support~~ | Done |
-
-> Some of these (skip-cache, line numbers, hybrid scoring) would have the biggest UX impact
-> for day-to-day developer use.
