@@ -1,0 +1,10 @@
+models/
+lib/
+.sift/
+sift
+/sift
+*.bin
+*.test
+*.prof
+/vendor/
+txt/
