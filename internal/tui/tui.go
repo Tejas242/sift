@@ -167,7 +167,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c", "ctrl+q":
 			return m, tea.Quit
 
-		case "ctrl+i":
+		case "ctrl+i", "tab":
 			if m.mode != modeStats {
 				m.mode = modeStats
 				s := m.idx.Stats()
