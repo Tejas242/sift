@@ -42,13 +42,18 @@ Sift is built on a modular pipeline designed for low latency, zero garbage colle
   <img src="./assets/architecture.png" alt="Sift Pipeline Architecture" width="100%">
 </p>
 
-1.  **`cmd/sift/`**: Isolated Cobra subcommands (`root`, `index`, `search`, `watch`, `tui`, `stats`, `clear`, `rebuild`, `bench`, `version`).
-2.  **`internal/chunker`**: Streaming word-window text splitter with smart paragraph boundary detection and binary file sniffer.
-3.  **`internal/embed`**: Local ONNX Runtime execution session wrapping a raw CGo binding of HuggingFace tokenizers.
-4.  **`internal/hnsw`**: Multi-layer vector index featuring custom fast binary serialization.
-5.  **`internal/index`**: Orchestrates indexing pipelines, handles stale chunk cleanups on file writes, and caches file mtimes for incremental bypasses.
-6.  **`internal/watcher`**: Debounced fsnotify file event listener for real-time background index updates.
-7.  **`internal/tui`**: Interactive CLI search dashboard.
+```
+  Components
+  ──────────
+  cmd/sift/          Cobra CLI subcommands (root, index, search, watch, tui, stats, clear, rebuild, bench, version)
+  internal/config    non-global .sift.toml configuration parsing
+  internal/chunker   streaming word-window text splitter, binary sniff
+  internal/embed     ONNX session + tokenizer, EmbedDocs / EmbedQuery
+  internal/hnsw      from-scratch HNSW graph + binary serialiser
+  internal/index     ties chunker → embedder → HNSW, flush / load
+  internal/watcher   fsnotify recursive dir watcher with debounce
+  internal/tui       BubbleTea TUI (spinner · icons · vim nav · statusbar)
+```
 
 ---
 
