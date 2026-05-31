@@ -239,3 +239,88 @@ func TestIndex_AddFile_Deduplicate_Search(t *testing.T) {
 		t.Errorf("expected chunk text %q, got %q", newContent, results[0].Meta.Text)
 	}
 }
+
+func TestIndex_Flush_SavesFiles(t *testing.T) {
+	dir := t.TempDir()
+	idx := &Index{
+		dir:              dir,
+		embedder:         &mockEmbedder{},
+		maxFileSizeBytes: 512 * 1024,
+		graph:            hnsw.New(16, 200, 50),
+		fileCache:        make(map[string]time.Time),
+	}
+
+	filePath := filepath.Join(dir, "doc.md")
+	if err := os.WriteFile(filePath, []byte("Content to flush"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := idx.AddFile(filePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Flush to disk
+	if err := idx.Flush(); err != nil {
+		t.Fatalf("Flush failed: %v", err)
+	}
+
+	// Verify meta.json and hnsw.bin files were created
+	metaPath := filepath.Join(dir, metaFile)
+	hnswPath := filepath.Join(dir, hnswFile)
+
+	if _, err := os.Stat(metaPath); err != nil {
+		t.Errorf("meta.json not found: %v", err)
+	}
+	if _, err := os.Stat(hnswPath); err != nil {
+		t.Errorf("hnsw.bin not found: %v", err)
+	}
+
+	// Verify Stats sizes
+	stats := idx.Stats()
+	if stats.NumChunks != 1 {
+		t.Errorf("expected 1 chunk, got %d", stats.NumChunks)
+	}
+	if stats.NumFiles != 1 {
+		t.Errorf("expected 1 file, got %d", stats.NumFiles)
+	}
+}
+
+func TestIndex_RebuildFromDir(t *testing.T) {
+	dir := t.TempDir()
+	idx := &Index{
+		dir:              dir,
+		embedder:         &mockEmbedder{},
+		maxFileSizeBytes: 512 * 1024,
+		graph:            hnsw.New(16, 200, 50),
+		fileCache:        make(map[string]time.Time),
+	}
+
+	// Create some files to index
+	doc1 := filepath.Join(dir, "doc1.md")
+	if err := os.WriteFile(doc1, []byte("Document one content."), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx := context.Background()
+	err := idx.IndexDir(ctx, dir)
+	if err != nil {
+		t.Fatalf("IndexDir failed: %v", err)
+	}
+
+	stats1 := idx.Stats()
+	if stats1.NumChunks != 1 {
+		t.Errorf("expected 1 chunk, got %d", stats1.NumChunks)
+	}
+
+	// Rebuild
+	err = idx.RebuildFromDir(ctx, dir)
+	if err != nil {
+		t.Fatalf("RebuildFromDir failed: %v", err)
+	}
+
+	stats2 := idx.Stats()
+	if stats2.NumChunks != 1 {
+		t.Errorf("expected 1 chunk after rebuild, got %d", stats2.NumChunks)
+	}
+}
