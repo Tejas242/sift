@@ -79,6 +79,16 @@ func (g *Graph) Len() int {
 	return len(g.nodes)
 }
 
+// GetNodeVec returns the vector for a given node ID.
+func (g *Graph) GetNodeVec(id uint32) []float32 {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	if int(id) >= len(g.nodes) {
+		return nil
+	}
+	return g.nodes[id].vec
+}
+
 // randomLevel draws a random level for a new node using the HNSW exponential law.
 func (g *Graph) randomLevel() int {
 	return int(math.Floor(-math.Log(g.rng.Float64()) * g.ml))

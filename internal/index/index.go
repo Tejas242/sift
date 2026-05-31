@@ -208,6 +208,9 @@ func (idx *Index) AddFileCtx(ctx context.Context, path string) (skipped bool, er
 	idx.mu.Lock()
 	defer idx.mu.Unlock()
 
+	// Remove stale/old chunks for this file path before adding new ones
+	idx.removeFileChunksUnderLock(path)
+
 	for i, vec := range vecs {
 		idx.chunks = append(idx.chunks, ChunkMeta{
 			Path:       path,
@@ -225,6 +228,40 @@ func (idx *Index) AddFileCtx(ctx context.Context, path string) (skipped bool, er
 	idx.dirty = true
 	idx.lastUpdated = time.Now()
 	return false, nil
+}
+
+// removeFileChunksUnderLock removes all chunks belonging to path from idx.chunks
+// and rebuilds the HNSW graph from the remaining chunks.
+// Must be called with idx.mu held.
+func (idx *Index) removeFileChunksUnderLock(path string) {
+	hasOldChunks := false
+	for _, c := range idx.chunks {
+		if c.Path == path {
+			hasOldChunks = true
+			break
+		}
+	}
+	if !hasOldChunks {
+		return
+	}
+
+	// Rebuild graph and chunks list
+	newChunks := make([]ChunkMeta, 0, len(idx.chunks))
+	newGraph := hnsw.New(hnsw.DefaultM, hnsw.DefaultEfConstruction, hnsw.DefaultEfSearch)
+
+	for oldID, c := range idx.chunks {
+		if c.Path == path {
+			continue
+		}
+		vec := idx.graph.GetNodeVec(uint32(oldID))
+		if vec != nil {
+			newGraph.Insert(vec)
+			newChunks = append(newChunks, c)
+		}
+	}
+
+	idx.chunks = newChunks
+	idx.graph = newGraph
 }
 
 // Search embeds query with the BGE instruction prefix and returns the top-k most similar chunks.
