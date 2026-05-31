@@ -209,17 +209,13 @@ func (idx *Index) AddFileCtx(ctx context.Context, path string) (skipped bool, er
 	defer idx.mu.Unlock()
 
 	for i, vec := range vecs {
-		preview := chunks[i].Text
-		if len(preview) > 200 {
-			preview = preview[:197] + "..."
-		}
 		idx.chunks = append(idx.chunks, ChunkMeta{
 			Path:       path,
 			LineNum:    chunks[i].LineNum,
 			StartByte:  chunks[i].StartByte,
 			EndByte:    chunks[i].EndByte,
 			ChunkIndex: chunks[i].Index,
-			Text:       preview,
+			Text:       chunks[i].Text,
 			Mtime:      mtime,
 		})
 		idx.graph.Insert(vec)
@@ -269,24 +265,15 @@ func (idx *Index) Search(query string, k int) ([]SearchResult, error) {
 		meta := idx.chunks[h.ID]
 		score := h.Score
 
-		// Read chunk text to allow both keyword boosting and cross-encoder reranking
-		var chunkText string
-		f, err := os.Open(meta.Path)
-		if err == nil {
-			buf := make([]byte, meta.EndByte-meta.StartByte)
-			if _, err := f.ReadAt(buf, meta.StartByte); err == nil {
-				chunkText = string(buf)
-				lowerText := strings.ToLower(chunkText)
-				var matches int
-				for _, w := range queryWords {
-					if len(w) > 2 && strings.Contains(lowerText, w) {
-						matches++
-					}
-				}
-				score += float32(matches) * 0.05
+		chunkText := meta.Text
+		lowerText := strings.ToLower(chunkText)
+		var matches int
+		for _, w := range queryWords {
+			if len(w) > 2 && strings.Contains(lowerText, w) {
+				matches++
 			}
-			f.Close()
 		}
+		score += float32(matches) * 0.05
 
 		reranked = append(reranked, scoredHit{meta: meta, score: score, text: chunkText})
 	}
