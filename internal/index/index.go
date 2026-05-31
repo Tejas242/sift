@@ -50,6 +50,13 @@ type SearchResult struct {
 	Score float32
 }
 
+// Embedder defines the interface required by the index for generating text embeddings.
+type Embedder interface {
+	Embed(texts []string) ([][]float32, error)
+	EmbedQuery(query string) ([]float32, error)
+	Close()
+}
+
 // Index is the main index state.
 type Index struct {
 	mu               sync.RWMutex
@@ -57,7 +64,7 @@ type Index struct {
 	graph            *hnsw.Graph
 	chunks           []ChunkMeta          // indexed by chunk ID (== HNSW node ID)
 	fileCache        map[string]time.Time // path → mtime of last indexed version
-	embedder         *embed.Embedder
+	embedder         Embedder
 	maxFileSizeBytes int64
 	dirty            bool
 	lastUpdated      time.Time
