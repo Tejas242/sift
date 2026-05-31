@@ -8,7 +8,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var jsonExport bool
+var (
+	jsonExport bool
+	topK       int
+)
 
 func init() {
 	searchCmd := &cobra.Command{
@@ -24,7 +27,7 @@ func init() {
 			}
 			defer idx.Close()
 
-			results, err := idx.Search(query, 10)
+			results, err := idx.Search(query, topK)
 			if err != nil {
 				return err
 			}
@@ -52,5 +55,6 @@ func init() {
 		},
 	}
 	searchCmd.Flags().BoolVar(&jsonExport, "json", false, "output search results as JSON")
+	searchCmd.Flags().IntVar(&topK, "top-k", 10, "number of results to return")
 	rootCmd.AddCommand(searchCmd)
 }
