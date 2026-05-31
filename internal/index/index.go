@@ -120,6 +120,17 @@ func Open(dir, modelDir, ortLibPath string, numThreads, maxFileKB int) (*Index, 
 	return idx, nil
 }
 
+// NewTestIndex creates an Index for testing purposes with a custom mock embedder.
+func NewTestIndex(dir string, embedder Embedder) *Index {
+	return &Index{
+		dir:              dir,
+		embedder:         embedder,
+		maxFileSizeBytes: 512 * 1024,
+		graph:            hnsw.New(hnsw.DefaultM, hnsw.DefaultEfConstruction, hnsw.DefaultEfSearch),
+		fileCache:        make(map[string]time.Time),
+	}
+}
+
 // Close flushes dirty state and releases the embedder.
 func (idx *Index) Close() error {
 	if err := idx.Flush(); err != nil {
