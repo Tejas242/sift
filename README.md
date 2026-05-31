@@ -5,9 +5,9 @@
 </p>
 
 <p align="center">
-  <b>A ultra-fast, entirely local, offline semantic search CLI & TUI for developers.</b><br>
-  Index whole folders of codebases, documentation, or text files, and search them instantly via natural language from your terminal.<br>
-  <i>Zero cloud APIs. Zero costs. Fully offline. Fully private.</i>
+  <b>A fast, local, and fully offline semantic search CLI & TUI for your terminal.</b><br>
+  Index folders of codebases, documentation, or notes, and search them instantly using natural language.<br>
+  <i>Zero cloud APIs. Zero costs. 100% local and private.</i>
 </p>
 
 <p align="center">
@@ -20,15 +20,15 @@
 
 ---
 
-Sift is built for developers who want a powerful, local alternative to cloud vector databases. By compiling HuggingFace's **BGE-small-en-v1.5** embeddings model into a self-contained local binary via **ONNX Runtime (CGo)**, and pairing it with a high-performance **HNSW vector graph index** built from scratch in Go, Sift delivers semantic file-search capability under **1ms** traversal latency without ever touching a network socket.
+Sift is a personal hobby project built for developers who want a lightweight, local alternative to cloud vector databases. By loading HuggingFace's **BGE-small-en-v1.5** embeddings model locally via **ONNX Runtime (CGo)** and pairing it with a **from-scratch HNSW vector graph index** implemented in pure Go, Sift delivers semantic file search in less than **1ms** traversal latency—completely offline.
 
 ## 🚀 Key Features
 
 *   **Offline Local Embeddings:** BGE-small-en-v1.5 embeddings computed locally on your CPU via native ONNX Runtime inference.
 *   **High-Speed HNSW Index:** A highly optimized Hierarchical Navigable Small World (HNSW) graph implemented from scratch in Go (`M=16`, `ef=50`), featuring O(1) visited bitsets and introsort routines for minimal allocations.
-*   **Hybrid Keyword Boosting:** Intersects dense vector search scores with sparse keyword matches to drastically improve recall accuracy for short queries and exact matches.
-*   **Semantic Paragraph Chunking:** Intelligent boundary chunking based on lines, markdown paragraphs (`\n\n`), and language blocks instead of mechanical word splits.
-*   **Debounced TUI:** A premium terminal interface built with **BubbleTea** featuring fuzzy instant search, spinner indicators, Vim navigation, and direct editor integrations.
+*   **Hybrid Keyword Boosting:** Intersects dense vector search scores with sparse keyword matches to improve search relevance for exact matches and short queries.
+*   **Semantic Paragraph Chunking:** Intelligent boundary chunking based on lines, markdown paragraphs (`\n\n`), and code blocks instead of mechanical word splits.
+*   **Debounced TUI:** A sleek interactive terminal interface built with **BubbleTea** featuring fuzzy instant search, spinner indicators, Vim navigation, and direct editor integrations.
 *   **Incremental Watching:** Multi-directory `fsnotify` file watcher that debounces writes and dynamically updates the index on modification or creation.
 *   **No DB Dependencies:** The complete index fits in a lightweight local folder (`.sift/`) featuring a custom flat binary graph layout and a JSON metadata skip-cache.
 
@@ -36,7 +36,7 @@ Sift is built for developers who want a powerful, local alternative to cloud vec
 
 ## 🏗 System Architecture
 
-Sift is built on a modular pipeline designed for low latency, zero garbage collection allocations on search hot paths, and absolute data integrity:
+Sift is built on a modular pipeline designed to be simple, clean, and self-contained:
 
 <p align="center">
   <img src="./assets/architecture.png" alt="Sift Pipeline Architecture" width="100%">
@@ -85,7 +85,7 @@ make build
 
 ## 📖 CLI Usage
 
-Sift provides a robust command-line interface for indexing, searching, and managing your knowledge bases.
+Sift provides a simple command-line interface for indexing, searching, and managing your files.
 
 ```bash
 # Index a directory recursively (creates a local .sift/ index folder)
@@ -120,7 +120,7 @@ Sift provides a robust command-line interface for indexing, searching, and manag
 ```
 
 ### ⚙️ Persistent Configuration (`.sift.toml`)
-Sift parses a `.sift.toml` file in the current working directory to easily persist preferences:
+Sift parses a `.sift.toml` file in the current working directory to save your setup:
 
 ```toml
 model-dir = "./models"
@@ -179,11 +179,11 @@ Run locally on modest consumer hardware (**AMD Ryzen 3 3250U @ 2.6GHz, CPU-only*
 
 ---
 
-## 🛠 CI/CD Benchmarking & Quality Assurance
-Sift employs industrial-grade continuous integration workflows to guarantee code correctness, static analysis hygiene, and performance durability:
+## 🛠 Testing & Benchmarking in CI
+Even though this is a personal hobby project, I wanted to keep the engineering standards high! We've set up automated workflows:
 
-1.  **Build & Unit Tests (`ci.yml`):** Compiles and runs all package suites, linting via `go vet`, and executing mocks for model-free verification.
-2.  **Continuous Benchmarking (`bench.yml`):** Benchmarks graph inserts and searches on every push and PR using `benchmark-action/github-action-benchmark`. Performance histories are mapped into interactive trend lines on GitHub Pages. Any performance degradation exceeding **50%** immediately alerts developers and fails the build.
+1.  **Build & Unit Tests (`ci.yml`):** Automatically compiles the code, checks for formatting/linting issues via `go vet`, and runs unit tests model-free using a mock embedder interface.
+2.  **Continuous Benchmarking (`bench.yml`):** Tracks our custom `BenchmarkHNSWInsert` and `BenchmarkHNSWSearch` execution speeds over commits using `github-action-benchmark` to ensure no changes introduce performance regressions.
 
 ---
 
