@@ -45,7 +45,8 @@
 ```
   Components
   ──────────
-  cmd/sift/main.go   cobra CLI (index · search · watch · tui · stats)
+  cmd/sift/          Cobra CLI subcommands (root, index, search, watch, tui, stats, clear, rebuild, bench, version)
+  internal/config    non-global .sift.toml configuration parsing
   internal/chunker   streaming word-window text splitter, binary sniff
   internal/embed     ONNX session + tokenizer, EmbedDocs / EmbedQuery
   internal/hnsw      from-scratch HNSW graph + binary serialiser
@@ -87,6 +88,12 @@ make build            # Produces ./sift binary
 # Non-interactive search — prints top-10 results
 ./sift search "how does the HNSW graph get built"
 
+# Search with custom number of results using --top-k
+./sift search --top-k 5 "how HNSW works"
+
+# Run quiet (suppresses "Loading model..." and progress outputs on stderr)
+./sift -q stats
+
 # Index then watch for file changes
 ./sift watch ./docs
 
@@ -95,6 +102,12 @@ make build            # Produces ./sift binary
 
 # Index statistics
 ./sift stats
+
+# Wipe index and rebuild from scratch (ignores skip-cache)
+./sift rebuild ./docs
+
+# Print build version, git commit, and compile time
+./sift version
 
 # Use a custom model directory or ORT library path
 ./sift --model-dir ~/models index ./docs
@@ -157,9 +170,21 @@ $ go test ./internal/hnsw/... -bench=BenchmarkRecall10 -benchtime=1x -v
 
 ```
 sift/
-├── cmd/sift/main.go          CLI entry point (cobra)
+├── cmd/sift/                 CLI commands package (one file per subcommand)
+│   ├── main.go               Minimal CLI entry point calling Execute()
+│   ├── root.go               Root CLI command, persistent flags, CLI helpers
+│   ├── index_cmd.go          'sift index' subcommand
+│   ├── search_cmd.go         'sift search' subcommand
+│   ├── watch_cmd.go          'sift watch' subcommand
+│   ├── tui_cmd.go            'sift tui' subcommand
+│   ├── stats_cmd.go          'sift stats' subcommand
+│   ├── clear_cmd.go          'sift clear' subcommand
+│   ├── rebuild_cmd.go        'sift rebuild' subcommand
+│   ├── bench_cmd.go          'sift bench' subcommand
+│   └── version_cmd.go        'sift version' subcommand
 ├── internal/
 │   ├── chunker/              Streaming word-window chunker
+│   ├── config/               Non-global .sift.toml configuration parsing
 │   ├── embed/                BGE-small ONNX embedder
 │   ├── hnsw/                 Pure-Go HNSW implementation
 │   ├── index/                Index manager (metadata + persistence)
