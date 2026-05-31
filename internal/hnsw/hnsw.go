@@ -130,7 +130,7 @@ func (g *Graph) Insert(vec []float32) {
 	// Insert into layers [min(level,epLevel) down to 0].
 	for lc := min(level, epLevel); lc >= 0; lc-- {
 		candidates := g.searchLayer(vec, ep, g.efConstruction, lc)
-		selected := g.selectNeighbours(candidates, g.m, lc)
+		selected := g.selectNeighbours(candidates, g.m)
 
 		// Connect new node to selected neighbours.
 		g.nodes[id].neighbors[lc] = selected
@@ -144,7 +144,7 @@ func (g *Graph) Insert(vec []float32) {
 				maxConn = 2 * g.m
 			}
 			if len(g.nodes[nb].neighbors[lc]) > maxConn {
-				g.nodes[nb].neighbors[lc] = g.pruneNeighbours(nb, g.nodes[nb].neighbors[lc], maxConn, lc)
+				g.nodes[nb].neighbors[lc] = g.pruneNeighbours(nb, g.nodes[nb].neighbors[lc], maxConn)
 			}
 		}
 
@@ -334,7 +334,7 @@ func (g *Graph) searchLayer(query []float32, ep uint32, ef, lc int) []candidate 
 }
 
 // selectNeighbours picks the best `m` candidates from a sorted list.
-func (g *Graph) selectNeighbours(candidates []candidate, m, _ int) []uint32 {
+func (g *Graph) selectNeighbours(candidates []candidate, m int) []uint32 {
 	if len(candidates) <= m {
 		ids := make([]uint32, len(candidates))
 		for i, c := range candidates {
@@ -351,7 +351,7 @@ func (g *Graph) selectNeighbours(candidates []candidate, m, _ int) []uint32 {
 
 // pruneNeighbours reduces the neighbour list of node `id` to at most `maxConn`
 // entries, keeping the ones with highest similarity.
-func (g *Graph) pruneNeighbours(id uint32, nbs []uint32, maxConn, _ int) []uint32 {
+func (g *Graph) pruneNeighbours(id uint32, nbs []uint32, maxConn int) []uint32 {
 	type nb struct {
 		id   uint32
 		dist float32
