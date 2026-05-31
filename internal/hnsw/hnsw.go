@@ -261,7 +261,7 @@ func (g *Graph) greedySearchLayer(query []float32, ep uint32, lc int) uint32 {
 // Always expand the most promising candidate from C. Stop when the best
 // unexplored candidate is worse than the worst element in W and W is full.
 func (g *Graph) searchLayer(query []float32, ep uint32, ef, lc int) []candidate {
-	visited := make(map[uint32]bool)
+	visited := make([]bool, len(g.nodes))
 	visited[ep] = true
 
 	epSim := sim(query, g.nodes[ep].vec)
