@@ -317,6 +317,7 @@ func (idx *Index) Search(query string, k int) ([]SearchResult, error) {
 }
 
 // Flush writes the HNSW graph and metadata to disk if dirty.
+// Writes use the atomic pattern: write to .tmp, sync, rename.
 func (idx *Index) Flush() error {
 	idx.mu.Lock()
 	defer idx.mu.Unlock()
@@ -325,20 +326,25 @@ func (idx *Index) Flush() error {
 		return nil
 	}
 
-	// Save HNSW graph.
+	// Save HNSW graph (uses atomic writes internally).
 	hnswPath := filepath.Join(idx.dir, hnswFile)
 	if err := idx.graph.Save(hnswPath); err != nil {
 		return fmt.Errorf("save hnsw: %w", err)
 	}
 
-	// Save chunk metadata.
+	// Save chunk metadata (atomic write: tmp → sync → rename).
 	metaPath := filepath.Join(idx.dir, metaFile)
+	tmpMeta := metaPath + ".tmp"
 	data, err := json.MarshalIndent(idx.chunks, "", "  ")
 	if err != nil {
 		return fmt.Errorf("marshal meta: %w", err)
 	}
-	if err := os.WriteFile(metaPath, data, 0o644); err != nil {
-		return fmt.Errorf("write meta: %w", err)
+	if err := os.WriteFile(tmpMeta, data, 0o644); err != nil {
+		return fmt.Errorf("write meta tmp: %w", err)
+	}
+	if err := os.Rename(tmpMeta, metaPath); err != nil {
+		os.Remove(tmpMeta)
+		return fmt.Errorf("rename meta: %w", err)
 	}
 
 	idx.dirty = false

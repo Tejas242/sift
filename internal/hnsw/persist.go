@@ -36,11 +36,11 @@ func (g *Graph) Save(path string) error {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
-	f, err := os.Create(path)
+	tmpPath := path + ".tmp"
+	f, err := os.Create(tmpPath)
 	if err != nil {
-		return fmt.Errorf("create %s: %w", path, err)
+		return fmt.Errorf("create %s: %w", tmpPath, err)
 	}
-	defer f.Close()
 
 	w := &binaryWriter{w: f}
 
@@ -67,7 +67,30 @@ func (g *Graph) Save(path string) error {
 		}
 	}
 
-	return w.err
+	if w.err != nil {
+		f.Close()
+		os.Remove(tmpPath)
+		return w.err
+	}
+
+	// Flush to disk before rename to ensure data durability.
+	if err := f.Sync(); err != nil {
+		f.Close()
+		os.Remove(tmpPath)
+		return fmt.Errorf("sync %s: %w", tmpPath, err)
+	}
+	if err := f.Close(); err != nil {
+		os.Remove(tmpPath)
+		return fmt.Errorf("close %s: %w", tmpPath, err)
+	}
+
+	// Atomic rename replaces the old file in one syscall (POSIX).
+	if err := os.Rename(tmpPath, path); err != nil {
+		os.Remove(tmpPath)
+		return fmt.Errorf("rename %s -> %s: %w", tmpPath, path, err)
+	}
+
+	return nil
 }
 
 // Load deserializes a graph from a binary file previously written by Save.
