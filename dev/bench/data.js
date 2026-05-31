@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780218592973,
+  "lastUpdate": 1780219750781,
   "repoUrl": "https://github.com/Tejas242/sift",
   "entries": {
     "Go HNSW Benchmarks": [
@@ -36,6 +36,42 @@ window.BENCHMARK_DATA = {
             "value": 338968,
             "unit": "ns/op",
             "extra": "3399 times\n4 procs"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tmahajan09876@gmail.com",
+            "name": "Tejas Mahajan",
+            "username": "Tejas242"
+          },
+          "committer": {
+            "email": "tmahajan09876@gmail.com",
+            "name": "Tejas Mahajan",
+            "username": "Tejas242"
+          },
+          "distinct": true,
+          "id": "886e440136880a79646368d0f1b9fdf8a90d44c2",
+          "message": "docs: update README copy to match a clean and standard hobby project",
+          "timestamp": "2026-05-31T14:56:13+05:30",
+          "tree_id": "ac9c09223ef1c32b0e5c3dbc17165760595421a4",
+          "url": "https://github.com/Tejas242/sift/commit/886e440136880a79646368d0f1b9fdf8a90d44c2"
+        },
+        "date": 1780219750487,
+        "tool": "go",
+        "benches": [
+          {
+            "name": "BenchmarkHNSWInsert",
+            "value": 1705935,
+            "unit": "ns/op",
+            "extra": "10000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkHNSWSearch",
+            "value": 370580,
+            "unit": "ns/op",
+            "extra": "3260 times\n4 procs"
           }
         ]
       }
