@@ -150,3 +150,45 @@ func BenchmarkRecall10(b *testing.B) {
 	// Clean up temp file if any.
 	_ = os.Remove("bench.hnsw")
 }
+
+// BenchmarkHNSWInsert measures insertion latency/throughput.
+func BenchmarkHNSWInsert(b *testing.B) {
+	const dim = 384
+	rng := rand.New(rand.NewSource(100))
+
+	// Pre-generate vectors to keep the benchmark focused purely on HNSW Insert hot path.
+	vecs := make([][]float32, b.N)
+	for i := range vecs {
+		vecs[i] = randomVec(rng, dim)
+	}
+
+	b.ResetTimer()
+	g := New(16, 200, 50)
+	for i := 0; i < b.N; i++ {
+		g.Insert(vecs[i])
+	}
+}
+
+// BenchmarkHNSWSearch measures search latency/throughput on an existing graph.
+func BenchmarkHNSWSearch(b *testing.B) {
+	const (
+		dim    = 384
+		nIndex = 1000
+	)
+	rng := rand.New(rand.NewSource(200))
+	g := New(16, 200, 50)
+
+	for i := 0; i < nIndex; i++ {
+		g.Insert(randomVec(rng, dim))
+	}
+
+	queries := make([][]float32, b.N)
+	for i := range queries {
+		queries[i] = randomVec(rng, dim)
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = g.Search(queries[i], 10)
+	}
+}
