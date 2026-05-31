@@ -1,7 +1,5 @@
-// Package index_test contains integration tests for the index package.
-// These tests exercise AddFile, Search, Flush, and Stats without a real
-// ONNX model by using a mock embedder interface.
-package index_test
+// Package index contains unit and integration tests for the index package.
+package index
 
 import (
 	"context"
@@ -11,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/tejas242/sift/internal/hnsw"
 )
@@ -21,7 +20,7 @@ func TestHNSWRecallSmokeTest(t *testing.T) {
 	g := hnsw.New(16, 200, 50)
 
 	dim := 8
-	vecs := make([][]float32, 20)
+	vecs := make([][]float32, dim)
 	for i := range vecs {
 		v := make([]float32, dim)
 		v[i%dim] += 1.0
@@ -128,31 +127,6 @@ func walkDirWithCtx(ctx context.Context, rootDir string, fn func(string) error) 
 	})
 }
 
-// walkDir is a local copy for testing the walk logic without creating a full Index.
-func walkDir(rootDir string, fn func(string) error) error {
-	entries, err := os.ReadDir(rootDir)
-	if err != nil {
-		return err
-	}
-	for _, entry := range entries {
-		name := entry.Name()
-		if len(name) > 0 && name[0] == '.' {
-			continue
-		}
-		full := filepath.Join(rootDir, name)
-		if entry.IsDir() {
-			if err := walkDir(full, fn); err != nil {
-				return err
-			}
-		} else {
-			if err := fn(full); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
 // l2Normalize normalizes v in-place to unit length.
 func l2Normalize(v []float32) {
 	var sum float32
@@ -165,5 +139,103 @@ func l2Normalize(v []float32) {
 	inv := float32(1.0 / math.Sqrt(float64(sum)))
 	for i := range v {
 		v[i] *= inv
+	}
+}
+
+type mockEmbedder struct{}
+
+func (m *mockEmbedder) Embed(texts []string) ([][]float32, error) {
+	vecs := make([][]float32, len(texts))
+	for i := range texts {
+		v := make([]float32, 384)
+		v[0] = 1.0 // a simple dummy L2-normalized vector
+		vecs[i] = v
+	}
+	return vecs, nil
+}
+
+func (m *mockEmbedder) EmbedQuery(query string) ([]float32, error) {
+	v := make([]float32, 384)
+	v[0] = 1.0
+	return v, nil
+}
+
+func (m *mockEmbedder) Close() {}
+
+func TestIndex_AddFile_Deduplicate_Search(t *testing.T) {
+	dir := t.TempDir()
+	idx := &Index{
+		dir:              dir,
+		embedder:         &mockEmbedder{},
+		maxFileSizeBytes: 512 * 1024,
+		graph:            hnsw.New(16, 200, 50),
+		fileCache:        make(map[string]time.Time),
+	}
+
+	// Create a dummy file to index.
+	filePath := filepath.Join(dir, "test.md")
+	content := "This is a test document with some words."
+	if err := os.WriteFile(filePath, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// 1. Add file.
+	skipped, err := idx.AddFile(filePath)
+	if err != nil {
+		t.Fatalf("AddFile failed: %v", err)
+	}
+	if skipped {
+		t.Error("expected skipped=false, got true")
+	}
+
+	// Verify stats
+	stats := idx.Stats()
+	if stats.NumChunks != 1 {
+		t.Errorf("expected 1 chunk, got %d", stats.NumChunks)
+	}
+
+	// 2. Add file again (same mtime) -> should skip.
+	skipped, err = idx.AddFile(filePath)
+	if err != nil {
+		t.Fatalf("second AddFile failed: %v", err)
+	}
+	if !skipped {
+		t.Error("expected second AddFile to be skipped (mtime match)")
+	}
+
+	// 3. Update file content and mtime -> should remove old chunks and re-index.
+	newContent := "This is updated document content to trigger re-index."
+	if err := os.WriteFile(filePath, []byte(newContent), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	futureTime := time.Now().Add(1 * time.Hour)
+	if err := os.Chtimes(filePath, futureTime, futureTime); err != nil {
+		t.Fatal(err)
+	}
+
+	skipped, err = idx.AddFile(filePath)
+	if err != nil {
+		t.Fatalf("AddFile after update failed: %v", err)
+	}
+	if skipped {
+		t.Error("expected skipped=false after update")
+	}
+
+	// Check stats: since we removed the old chunk, count should still be 1 (not 2)!
+	stats = idx.Stats()
+	if stats.NumChunks != 1 {
+		t.Errorf("expected 1 chunk after update (stale removed), got %d", stats.NumChunks)
+	}
+
+	// 4. Search.
+	results, err := idx.Search("updated document", 10)
+	if err != nil {
+		t.Fatalf("Search failed: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(results))
+	}
+	if results[0].Meta.Text != newContent {
+		t.Errorf("expected chunk text %q, got %q", newContent, results[0].Meta.Text)
 	}
 }
