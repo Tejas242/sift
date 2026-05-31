@@ -13,6 +13,7 @@ import (
 	"container/heap"
 	"math"
 	"math/rand"
+	"sort"
 	"sync"
 )
 
@@ -323,13 +324,7 @@ func (g *Graph) searchLayer(query []float32, ep uint32, ef, lc int) []candidate 
 	}
 
 	// Sort W descending by similarity.
-	for i := 0; i < len(W)-1; i++ {
-		for j := i + 1; j < len(W); j++ {
-			if W[j].dist > W[i].dist {
-				W[i], W[j] = W[j], W[i]
-			}
-		}
-	}
+	sort.Slice(W, func(i, j int) bool { return W[i].dist > W[j].dist })
 	return W
 }
 
@@ -360,14 +355,8 @@ func (g *Graph) pruneNeighbours(id uint32, nbs []uint32, maxConn int) []uint32 {
 	for i, n := range nbs {
 		scored[i] = nb{id: n, dist: sim(g.nodes[id].vec, g.nodes[n].vec)}
 	}
-	// Sort descending.
-	for i := 0; i < len(scored)-1; i++ {
-		for j := i + 1; j < len(scored); j++ {
-			if scored[j].dist > scored[i].dist {
-				scored[i], scored[j] = scored[j], scored[i]
-			}
-		}
-	}
+	// Sort descending by similarity.
+	sort.Slice(scored, func(i, j int) bool { return scored[i].dist > scored[j].dist })
 	if len(scored) > maxConn {
 		scored = scored[:maxConn]
 	}
