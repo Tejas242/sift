@@ -503,4 +503,20 @@ func visibleLen(s string) int {
 }
 
 // stripStyle returns the raw string without Lipgloss ANSI styling.
-func stripStyle(s string) string { return s }
+func stripStyle(s string) string {
+	var sb strings.Builder
+	inEsc := false
+	for _, c := range s {
+		if c == '\x1b' {
+			inEsc = true
+		}
+		if inEsc {
+			if (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') {
+				inEsc = false
+			}
+			continue
+		}
+		sb.WriteRune(c)
+	}
+	return sb.String()
+}
