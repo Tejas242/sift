@@ -1,0 +1,46 @@
+name: Continuous Benchmarking
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+permissions:
+  contents: write
+  deployments: write
+
+jobs:
+  benchmark:
+    name: Run and Track Benchmarks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+          cache: true
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc
+
+      - name: Run Benchmarks
+        run: |
+          go test -bench=BenchmarkHNSW -run=^$ ./internal/hnsw/... | tee bench_output.txt
+
+      - name: Store Benchmark Results
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: Go HNSW Benchmarks
+          tool: 'go'
+          output-file-path: bench_output.txt
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          alert-threshold: '150%'
+          comment-on-alert: true
+          fail-on-alert: true
+          auto-push: ${{ github.ref == 'refs/heads/master' }}
