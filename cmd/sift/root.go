@@ -25,6 +25,7 @@ var (
 	ortLib     string
 	numThreads int
 	maxFileKB  int
+	quiet      bool
 )
 
 func init() {
@@ -39,6 +40,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&ortLib, "ort-lib", cfg.OrtLib, "path to onnxruntime.so (auto-detected if empty)")
 	rootCmd.PersistentFlags().IntVar(&numThreads, "threads", cfg.Threads, "ONNX intra-op thread count (0 = auto, usually NumCPU capped at 4)")
 	rootCmd.PersistentFlags().IntVar(&maxFileKB, "max-file-kb", cfg.MaxFileKB, "skip indexing files larger than this (in KB)")
+	rootCmd.PersistentFlags().BoolVarP(&quiet, "quiet", "q", false, "suppress progress and model loading output")
 }
 
 // Execute executes the root command.
@@ -47,14 +49,20 @@ func Execute() error {
 }
 
 func openIndex(ortLibFlag string) (*index.Index, error) {
-	fmt.Fprint(os.Stderr, "Loading model… ")
+	if !quiet {
+		fmt.Fprint(os.Stderr, "Loading model… ")
+	}
 	resolved := config.ResolveOrtLib(ortLibFlag)
 	idx, err := index.Open(config.DefaultSiftDir, modelDir, resolved, numThreads, maxFileKB)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "")
+		if !quiet {
+			fmt.Fprintln(os.Stderr, "")
+		}
 		return nil, err
 	}
-	fmt.Fprintln(os.Stderr, "ready.")
+	if !quiet {
+		fmt.Fprintln(os.Stderr, "ready.")
+	}
 	return idx, nil
 }
 
@@ -67,12 +75,16 @@ func indexDirs(ctx context.Context, idx *index.Index, dirs []string) error {
 		case <-done:
 			return // clean exit — do nothing
 		case <-ctx.Done():
-			fmt.Fprintln(os.Stderr, "\n[sift] stopping — waiting up to 1s for current embed to finish…")
+			if !quiet {
+				fmt.Fprintln(os.Stderr, "\n[sift] stopping — waiting up to 1s for current embed to finish…")
+			}
 			select {
 			case <-done:
 				return // finished before timeout
 			case <-time.After(time.Second):
-				fmt.Fprintln(os.Stderr, "[sift] exiting.")
+				if !quiet {
+					fmt.Fprintln(os.Stderr, "[sift] exiting.")
+				}
 				os.Exit(130)
 			}
 		}
@@ -80,11 +92,15 @@ func indexDirs(ctx context.Context, idx *index.Index, dirs []string) error {
 
 	prog := makeProgressPrinter()
 	for _, dir := range dirs {
-		fmt.Fprintf(os.Stderr, "Scanning %s…\n", dir)
+		if !quiet {
+			fmt.Fprintf(os.Stderr, "Scanning %s…\n", dir)
+		}
 		err := idx.IndexDirWithProgress(ctx, dir, prog)
 		if err != nil {
 			if isInterrupted(err) {
-				fmt.Fprintln(os.Stderr, "\nInterrupted — saving partial index…")
+				if !quiet {
+					fmt.Fprintln(os.Stderr, "\nInterrupted — saving partial index…")
+				}
 				return nil
 			}
 			return err
@@ -98,6 +114,9 @@ func isInterrupted(err error) bool {
 }
 
 func makeProgressPrinter() index.ProgressFunc {
+	if quiet {
+		return func(done, total int, path string, skipped bool) {}
+	}
 	return func(done, total int, path string, skipped bool) {
 		short := filepath.Base(filepath.Dir(path)) + "/" + filepath.Base(path)
 		if skipped {
