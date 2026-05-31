@@ -25,6 +25,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y gcc
 
+      - name: Download libtokenizers
+        run: |
+          mkdir -p lib
+          curl -L -o lib/libtokenizers.tar.gz https://github.com/daulet/tokenizers/releases/download/v1.25.0/libtokenizers.linux-amd64.tar.gz
+          tar -xzf lib/libtokenizers.tar.gz -C lib/
+          ls -la lib
+
       - name: Run go vet
         run: go vet ./...
 

@@ -29,9 +29,34 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y gcc
 
+      - name: Download libtokenizers
+        run: |
+          mkdir -p lib
+          curl -L -o lib/libtokenizers.tar.gz https://github.com/daulet/tokenizers/releases/download/v1.25.0/libtokenizers.linux-amd64.tar.gz
+          tar -xzf lib/libtokenizers.tar.gz -C lib/
+          ls -la lib
+
       - name: Run Benchmarks
         run: |
           go test -bench=BenchmarkHNSW -run=^$ ./internal/hnsw/... | tee bench_output.txt
+
+      - name: Initialize gh-pages branch if not exists
+        if: github.ref == 'refs/heads/master'
+        run: |
+          if ! git ls-remote --heads origin gh-pages | grep -q 'refs/heads/gh-pages'; then
+            echo "gh-pages branch does not exist. Initializing..."
+            git config --global user.name "github-actions[bot]"
+            git config --global user.email "github-actions[bot]@users.noreply.github.com"
+            git checkout --orphan gh-pages
+            git rm -rf .
+            touch .nojekyll
+            git add .nojekyll
+            git commit -m "Initialize gh-pages branch"
+            git push origin gh-pages
+            git checkout master
+          else
+            echo "gh-pages branch already exists."
+          fi
 
       - name: Store Benchmark Results
         uses: benchmark-action/github-action-benchmark@v1
