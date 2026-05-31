@@ -1,7 +1,7 @@
 # Sift 🔍
 
 <p align="center">
-  <img src="./assets/architecture.png" alt="Sift Architecture" width="100%">
+  <img src="./assets/sift-banner.png" alt="sift banner" width="100%">
 </p>
 
 <p align="center">
@@ -38,12 +38,9 @@ Sift is built for developers who want a powerful, local alternative to cloud vec
 
 Sift is built on a modular pipeline designed for low latency, zero garbage collection allocations on search hot paths, and absolute data integrity:
 
-```
-[Local Data Sources] ──> [Chunker] ──> [Embedder (ONNX Runtime + Tokenizer)] ──> [HNSW Index]
-                                                                                      │
-                                                                                      ▼
-                                                                        [Cobra CLI / BubbleTea TUI]
-```
+<p align="center">
+  <img src="./assets/architecture.png" alt="Sift Pipeline Architecture" width="100%">
+</p>
 
 1.  **`cmd/sift/`**: Isolated Cobra subcommands (`root`, `index`, `search`, `watch`, `tui`, `stats`, `clear`, `rebuild`, `bench`, `version`).
 2.  **`internal/chunker`**: Streaming word-window text splitter with smart paragraph boundary detection and binary file sniffer.
