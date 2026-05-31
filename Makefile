@@ -3,7 +3,7 @@ BINARY := sift
 MODEL_DIR := models
 MODEL_URL_BASE := https://huggingface.co/BAAI/bge-small-en-v1.5/resolve/main
 ORT_VERSION := 1.24.2
-ORT_URL := https://github.com/microsoft/onnxruntime/releases/download/v$(ORT_VERSION)/onnxruntime-linux-x64-$(ORT_VERSION).tgz
+UNAME_S := $(shell uname -s)
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
@@ -38,13 +38,22 @@ download-model:
 	@echo "Model downloaded to $(MODEL_DIR)/"
 
 download-ort:
-	@echo "Downloading ONNX Runtime $(ORT_VERSION) shared library for Linux x64…"
 	@mkdir -p lib
-	@curl -L --progress-bar -o /tmp/ort.tgz "$(ORT_URL)"
+ifeq ($(UNAME_S),Darwin)
+	@echo "Downloading ONNX Runtime $(ORT_VERSION) shared library for macOS (Universal)…"
+	@curl -L --progress-bar -o /tmp/ort.tgz "https://github.com/microsoft/onnxruntime/releases/download/v$(ORT_VERSION)/onnxruntime-osx-universal-$(ORT_VERSION).tgz"
+	@tar -xzf /tmp/ort.tgz -C /tmp/
+	@cp /tmp/onnxruntime-osx-universal-$(ORT_VERSION)/lib/libonnxruntime.$(ORT_VERSION).dylib lib/onnxruntime.dylib
+	@rm -f /tmp/ort.tgz
+	@echo "onnxruntime.dylib → lib/onnxruntime.dylib"
+else
+	@echo "Downloading ONNX Runtime $(ORT_VERSION) shared library for Linux x64…"
+	@curl -L --progress-bar -o /tmp/ort.tgz "https://github.com/microsoft/onnxruntime/releases/download/v$(ORT_VERSION)/onnxruntime-linux-x64-$(ORT_VERSION).tgz"
 	@tar -xzf /tmp/ort.tgz -C /tmp/
 	@cp /tmp/onnxruntime-linux-x64-$(ORT_VERSION)/lib/libonnxruntime.so.$(ORT_VERSION) lib/onnxruntime.so
 	@rm -f /tmp/ort.tgz
 	@echo "onnxruntime.so → lib/onnxruntime.so"
+endif
 
 clean:
 	rm -f $(BINARY)
