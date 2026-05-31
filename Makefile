@@ -5,10 +5,16 @@ MODEL_URL_BASE := https://huggingface.co/BAAI/bge-small-en-v1.5/resolve/main
 ORT_VERSION := 1.24.2
 ORT_URL := https://github.com/microsoft/onnxruntime/releases/download/v$(ORT_VERSION)/onnxruntime-linux-x64-$(ORT_VERSION).tgz
 
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+DATE ?= $(shell date -u +'%Y-%m-%d_%H:%M:%S' 2>/dev/null || echo "unknown")
+
+LDFLAGS := -X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DATE)
+
 .PHONY: build clean test bench download-model download-ort
 
 build:
-	$(GO) build -o $(BINARY) ./cmd/sift/
+	$(GO) build -ldflags "$(LDFLAGS)" -o $(BINARY) ./cmd/sift/
 
 test:
 	$(GO) test ./internal/chunker/... ./internal/hnsw/... -v -timeout 60s
