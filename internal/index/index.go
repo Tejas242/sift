@@ -318,16 +318,12 @@ func (idx *Index) Search(query string, k int) ([]SearchResult, error) {
 
 // Flush writes the HNSW graph and metadata to disk if dirty.
 func (idx *Index) Flush() error {
-	idx.mu.RLock()
-	dirty := idx.dirty
-	idx.mu.RUnlock()
-
-	if !dirty {
-		return nil
-	}
-
 	idx.mu.Lock()
 	defer idx.mu.Unlock()
+
+	if !idx.dirty {
+		return nil
+	}
 
 	// Save HNSW graph.
 	hnswPath := filepath.Join(idx.dir, hnswFile)
