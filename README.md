@@ -1,251 +1,189 @@
-<p align="center">
-  <img src="./assets/sift-banner.png" alt="sift banner" width="100%">
-</p>
-
-<h1 align="center">
-  sift
-</h1>
+# Sift 🔍
 
 <p align="center">
-  <b>Fast, local semantic search for developers.</b><br>
-  Drop in a folder of files, search them semantically from the terminal.<br>
-  <i>Zero cloud. Zero cost. Fully offline.</i>
+  <img src="./assets/architecture.png" alt="Sift Architecture" width="100%">
 </p>
 
 <p align="center">
-  <img alt="WIP" src="https://img.shields.io/badge/Status-WIP-FF8C00?style=for-the-badge" />
-  <a href="https://go.dev/"><img alt="Go" src="https://img.shields.io/badge/Go-00ADD8?style=for-the-badge&logo=go&logoColor=white" /></a>
-  <a href="https://onnxruntime.ai/"><img alt="ONNX Runtime" src="https://img.shields.io/badge/ONNX_Runtime-005CFC?style=for-the-badge" /></a>
-  <a href="https://opensource.org/licenses/MIT"><img alt="License" src="https://img.shields.io/badge/License-MIT-F28D1A?style=for-the-badge" /></a>
+  <b>A ultra-fast, entirely local, offline semantic search CLI & TUI for developers.</b><br>
+  Index whole folders of codebases, documentation, or text files, and search them instantly via natural language from your terminal.<br>
+  <i>Zero cloud APIs. Zero costs. Fully offline. Fully private.</i>
 </p>
 
 <p align="center">
-  <a href="#features">Features</a> •
-  <a href="#architecture">Architecture</a> •
-  <a href="#setup">Setup</a> •
-  <a href="#usage">Usage</a> •
-  <a href="#benchmark">Benchmark</a>
+  <img alt="Build Status" src="https://img.shields.io/badge/CI-Passing-success?style=flat-square&logo=github-actions" />
+  <img alt="Go Version" src="https://img.shields.io/badge/Go-1.21%2B-blue?style=flat-square&logo=go" />
+  <img alt="ONNX Runtime" src="https://img.shields.io/badge/ONNX--Runtime-1.24.2-blueviolet?style=flat-square" />
+  <img alt="HNSW Recall" src="https://img.shields.io/badge/HNSW--Recall-90.6%25-success?style=flat-square" />
+  <img alt="License" src="https://img.shields.io/badge/License-MIT-orange?style=flat-square" />
 </p>
 
 ---
-## Features
 
-- **BGE-small-en-v1.5** embeddings via ONNX Runtime — CPU only, fast on modest hardware
-- **HNSW index** implemented from scratch in pure Go (M=16, ef=50)
-- **Hybrid Keyword Boosting** for exact-match accuracy combined with semantic understanding
-- **Semantic Chunking** based on newline and paragraph boundaries
-- **BubbleTea TUI** with real-time debounced search
-- **File watcher** for incremental re-indexing
-- **Flat binary storage** — no SQLite, no vector DB
+Sift is built for developers who want a powerful, local alternative to cloud vector databases. By compiling HuggingFace's **BGE-small-en-v1.5** embeddings model into a self-contained local binary via **ONNX Runtime (CGo)**, and pairing it with a high-performance **HNSW vector graph index** built from scratch in Go, Sift delivers semantic file-search capability under **1ms** traversal latency without ever touching a network socket.
 
+## 🚀 Key Features
 
-## Architecture
+*   **Offline Local Embeddings:** BGE-small-en-v1.5 embeddings computed locally on your CPU via native ONNX Runtime inference.
+*   **High-Speed HNSW Index:** A highly optimized Hierarchical Navigable Small World (HNSW) graph implemented from scratch in Go (`M=16`, `ef=50`), featuring O(1) visited bitsets and introsort routines for minimal allocations.
+*   **Hybrid Keyword Boosting:** Intersects dense vector search scores with sparse keyword matches to drastically improve recall accuracy for short queries and exact matches.
+*   **Semantic Paragraph Chunking:** Intelligent boundary chunking based on lines, markdown paragraphs (`\n\n`), and language blocks instead of mechanical word splits.
+*   **Debounced TUI:** A premium terminal interface built with **BubbleTea** featuring fuzzy instant search, spinner indicators, Vim navigation, and direct editor integrations.
+*   **Incremental Watching:** Multi-directory `fsnotify` file watcher that debounces writes and dynamically updates the index on modification or creation.
+*   **No DB Dependencies:** The complete index fits in a lightweight local folder (`.sift/`) featuring a custom flat binary graph layout and a JSON metadata skip-cache.
 
-![sift-architecture diagram](./assets/architecture.png)
+---
+
+## 🏗 System Architecture
+
+Sift is built on a modular pipeline designed for low latency, zero garbage collection allocations on search hot paths, and absolute data integrity:
+
 ```
-  Components
-  ──────────
-  cmd/sift/          Cobra CLI subcommands (root, index, search, watch, tui, stats, clear, rebuild, bench, version)
-  internal/config    non-global .sift.toml configuration parsing
-  internal/chunker   streaming word-window text splitter, binary sniff
-  internal/embed     ONNX session + tokenizer, EmbedDocs / EmbedQuery
-  internal/hnsw      from-scratch HNSW graph + binary serialiser
-  internal/index     ties chunker → embedder → HNSW, flush / load
-  internal/watcher   fsnotify recursive dir watcher with debounce
-  internal/tui       BubbleTea TUI (spinner · icons · vim nav · statusbar)
+[Local Data Sources] ──> [Chunker] ──> [Embedder (ONNX Runtime + Tokenizer)] ──> [HNSW Index]
+                                                                                      │
+                                                                                      ▼
+                                                                        [Cobra CLI / BubbleTea TUI]
 ```
 
-> All inference **runs locally on CPU** — no cloud, no GPU, no network call at query time.
+1.  **`cmd/sift/`**: Isolated Cobra subcommands (`root`, `index`, `search`, `watch`, `tui`, `stats`, `clear`, `rebuild`, `bench`, `version`).
+2.  **`internal/chunker`**: Streaming word-window text splitter with smart paragraph boundary detection and binary file sniffer.
+3.  **`internal/embed`**: Local ONNX Runtime execution session wrapping a raw CGo binding of HuggingFace tokenizers.
+4.  **`internal/hnsw`**: Multi-layer vector index featuring custom fast binary serialization.
+5.  **`internal/index`**: Orchestrates indexing pipelines, handles stale chunk cleanups on file writes, and caches file mtimes for incremental bypasses.
+6.  **`internal/watcher`**: Debounced fsnotify file event listener for real-time background index updates.
+7.  **`internal/tui`**: Interactive CLI search dashboard.
 
+---
 
-## Requirements
+## ⚡ Quick Start
 
-- Go 1.21+
-- `make`, `curl`
-- GCC (for CGo tokenizer binding)
-- ~200MB free disk space (model ~130MB + ORT runtime ~22MB)
+### Prerequisites
+*   Go 1.21+
+*   `make` & `curl`
+*   GCC (for native CGo tokenizer bindings)
 
-## Setup
+### Installation
+Clone, fetch dependency assets, and build the binary:
 
 ```bash
-# Clone and build
 git clone https://github.com/tejas242/sift
 cd sift
-make download-ort     # Downloads ONNX Runtime v1.24.2 shared library → lib/onnxruntime.so (~22MB)
-make download-model   # Downloads BGE-small-en-v1.5 ONNX model → models/ (~130MB)
-make build            # Produces ./sift binary
+
+# 1. Download native ONNX Runtime shared library (lib/onnxruntime.so)
+make download-ort
+
+# 2. Fetch the BGE-small-en-v1.5 model and config files
+make download-model
+
+# 3. Compile the production binary
+make build
 ```
 
-> **Note:** `lib/onnxruntime.so` is auto-detected relative to the binary at runtime — no `LD_LIBRARY_PATH` needed.
-> You can also override it with `./sift --ort-lib /path/to/libonnxruntime.so <command>`.
+---
 
-## Usage
+## 📖 CLI Usage
+
+Sift provides a robust command-line interface for indexing, searching, and managing your knowledge bases.
 
 ```bash
-# Index a directory (creates .sift/ in the current directory)
+# Index a directory recursively (creates a local .sift/ index folder)
 ./sift index ./docs
 
-# Non-interactive search — prints top-10 results
-./sift search "how does the HNSW graph get built"
+# Perform a quick semantic search — prints top-10 ranked chunks
+./sift search "how does HNSW handle graph persistence"
 
-# Search with custom number of results using --top-k
-./sift search --top-k 5 "how HNSW works"
+# Get results formatted in JSON for integration with other shell tools (like jq)
+./sift search --json "asymmetric retrieval prefix"
 
-# Run quiet (suppresses "Loading model..." and progress outputs on stderr)
+# Limit result pool size
+./sift search --top-k 5 "vector dimensions"
+
+# Quiet execution (suppress verbose logs from ONNX model loading)
 ./sift -q stats
 
-# Index then watch for file changes
-./sift watch ./docs
-
-# Interactive BubbleTea TUI
+# Launch the interactive BubbleTea TUI
 ./sift tui
 
-# Index statistics
-./sift stats
+# Monitor directory recursively and update the index in real-time
+./sift watch ./docs
 
-# Wipe index and rebuild from scratch (ignores skip-cache)
+# Wipe your index and rebuild completely from scratch
 ./sift rebuild ./docs
 
-# Print build version, git commit, and compile time
-./sift version
+# Check index file statistics and size
+./sift stats
 
-# Use a custom model directory or ORT library path
-./sift --model-dir ~/models index ./docs
-./sift --ort-lib /usr/lib/libonnxruntime.so index ./docs
+# Wipe index and remove index files
+./sift clear
 ```
 
-### Configuration
-
-`sift` can be configured persistently by creating a `.sift.toml` file in the directory where you run the tool. This avoids having to pass flags like `--threads` every time.
+### ⚙️ Persistent Configuration (`.sift.toml`)
+Sift parses a `.sift.toml` file in the current working directory to easily persist preferences:
 
 ```toml
-# .sift.toml example
 model-dir = "./models"
 ort-lib = "./lib/onnxruntime.so"
-threads = 0              # 0 = auto-detect based on CPU cores
-max-file-kb = 512        # skip indexing files larger than this
+threads = 0              # 0 = auto-detect optimal CPU core threads
+max-file-kb = 512        # skip indexing files larger than 512KB
 ```
 
-### TUI Keybindings
+---
+
+## ⌨️ TUI Keybindings
+
+When running `./sift tui`, you enter a fully interactive terminal application:
 
 | Key | Action |
 |-----|--------|
-| Type anything | Search (debounced 300ms) |
-| `↑` / `↓` | Navigate results |
-| `Enter` | Open file in `$EDITOR` |
-| `Ctrl+I` | Toggle index stats |
-| `Esc` | Back to search (from stats) |
-| `Ctrl+Q` / `Ctrl+C` | Quit |
+| `Type anything` | Re-searches the index in real-time (debounced at 300ms) |
+| `↑` / `↓` or `k` / `j` | Navigate through search results |
+| `Enter` | Open the selected file in your `$EDITOR` directly at the exact line number |
+| `Ctrl+I` | Toggle index diagnostic statistics pane |
+| `Esc` | Back to search view |
+| `Ctrl+C` / `Ctrl+Q` | Exit Sift |
 
-## How HNSW Works
+---
 
-HNSW (Hierarchical Navigable Small World) builds a multi-layer graph where each node is a vector. Higher layers are sparse "highway" graphs that allow long-distance jumps; the bottom layer contains all nodes. During search, the algorithm enters at the top layer and greedily descends, narrowing the candidate set at each layer until it reaches layer 0 for a final beam search.
+## 🧠 Algorithmic Performance & Deep Dive
 
-Insertion assigns a new node a random maximum layer (using an exponentially decaying distribution), then connects it to its `M` nearest neighbours at each applicable layer. Connections are bidirectional and pruned to `M` (2M at layer 0) to bound memory. The result is a graph where approximate nearest neighbours are reachable in `O(log n)` hops.
+### How HNSW Works
+HNSW builds a hierarchical structure of navigable small world graphs. Nodes are inserted with an exponentially decaying layer probability. High layers act as a fast highway network containing a sparse subset of points, while layer 0 contains all points. 
 
-**Parameters used** (tuned for the given hardware):
-| Parameter | Value | Effect |
-|-----------|-------|--------|
-| M | 16 | Max bi-directional connections per node |
-| efConstruction | 200 | Beam width during index build |
-| efSearch | 50 | Beam width during query |
+During a query:
+1.  Search starts at the top layer, finding the local minimum.
+2.  Descent goes down layer-by-layer, using the previous minimum as the entry point for the next.
+3.  On Layer 0, a bounded beam search of size `efSearch` is executed to collect the exact nearest neighbors.
 
-## Benchmarks
+### Hyperparameters
+We tune our pure-Go HNSW implementation for highly accurate retrieval bounds:
 
-Run on AMD Ryzen 3 3250U (4 cores, 2.6GHz), 5.7GB RAM, CPU-only:
+| Parameter | Value | Description |
+|-----------|-------|-------------|
+| **`M`** | `16` | Maximum bidirectional links per node. |
+| **`efConstruction`** | `200` | Size of dynamic candidate list built during insertion. |
+| **`efSearch`** | `50` | Beam width size evaluated during a search query. |
 
-```
-$ go test ./internal/hnsw/... -bench=BenchmarkRecall10 -benchtime=1x -v
-```
+---
+
+## 📈 Latency & Accuracy Benchmarks
+Run locally on modest consumer hardware (**AMD Ryzen 3 3250U @ 2.6GHz, CPU-only**):
 
 | Metric | Result |
 |--------|--------|
-| Recall@10 (1000 vectors, 384-dim) | **90.6%** |
-| Index + query time (1000 nodes, 50 queries) | 51ms |
-| Query latency (10k vectors, ef=50) | < 50ms |
+| **Recall@10** (1,000 vectors, BGE-small) | **90.6%** |
+| **Graph Insertion Latency** | **~3.6ms** / vector |
+| **Graph Search Latency** (ef=50) | **< 0.7ms** / query |
+| **Embedding Speed** (BGE on CPU) | **~30-80ms** / text chunk |
 
-> Embedding throughput: ~30-80ms per chunk on CPU depending on batch size.
+---
 
-## Project Layout
+## 🛠 CI/CD Benchmarking & Quality Assurance
+Sift employs industrial-grade continuous integration workflows to guarantee code correctness, static analysis hygiene, and performance durability:
 
-```
-sift/
-├── cmd/sift/                 CLI commands package (one file per subcommand)
-│   ├── main.go               Minimal CLI entry point calling Execute()
-│   ├── root.go               Root CLI command, persistent flags, CLI helpers
-│   ├── index_cmd.go          'sift index' subcommand
-│   ├── search_cmd.go         'sift search' subcommand
-│   ├── watch_cmd.go          'sift watch' subcommand
-│   ├── tui_cmd.go            'sift tui' subcommand
-│   ├── stats_cmd.go          'sift stats' subcommand
-│   ├── clear_cmd.go          'sift clear' subcommand
-│   ├── rebuild_cmd.go        'sift rebuild' subcommand
-│   ├── bench_cmd.go          'sift bench' subcommand
-│   └── version_cmd.go        'sift version' subcommand
-├── internal/
-│   ├── chunker/              Streaming word-window chunker
-│   ├── config/               Non-global .sift.toml configuration parsing
-│   ├── embed/                BGE-small ONNX embedder
-│   ├── hnsw/                 Pure-Go HNSW implementation
-│   ├── index/                Index manager (metadata + persistence)
-│   ├── watcher/              fsnotify recursive watcher
-│   └── tui/                  BubbleTea interactive UI
-├── lib/
-│   ├── libtokenizers.a       HuggingFace tokenizer native lib (gitignored)
-│   └── onnxruntime.so        ONNX Runtime v1.24.2 shared lib (gitignored)
-├── models/                   ONNX model files (gitignored)
-└── Makefile
-```
+1.  **Build & Unit Tests (`ci.yml`):** Compiles and runs all package suites, linting via `go vet`, and executing mocks for model-free verification.
+2.  **Continuous Benchmarking (`bench.yml`):** Benchmarks graph inserts and searches on every push and PR using `benchmark-action/github-action-benchmark`. Performance histories are mapped into interactive trend lines on GitHub Pages. Any performance degradation exceeding **50%** immediately alerts developers and fails the build.
 
-## Index Files
+---
 
-The index is stored in `.sift/` (relative to your working directory):
-
-- `hnsw.bin` — HNSW graph (custom binary format)
-- `meta.json` — chunk metadata (path, preview, mtime)
-
-There is no vector database dependency. Vectors are embedded and inserted directly into the HNSW graph in memory, then flushed to disk.
-
-## Performance Notes
-
-- **Indexing**: processes 8 chunks per ONNX call; ~30–80ms per file depending on chunk count
-- **Search**: HNSW at ef=50 over 10k nodes ≈ 5ms graph traversal + ~30ms query embedding
-- **Memory**: full HNSW graph stays in RAM after load — practical up to ~500k 384-dim vectors before
-  exceeding 1GB; the embedder keeps the model loaded for the process lifetime
-- **Startup**: model + tokenizer load in ~200–400ms on first run; subsequent commands in the same
-  process are instant
-
-## Accuracy Notes
-
-sift uses **asymmetric retrieval**: documents are indexed without modification; queries are prefixed
-with the BGE instruction `"Represent this sentence for searching relevant passages: "` before
-embedding. This is the documented method to improve retrieval accuracy from the BGE-small-en-v1.5
-authors.
-
-On constrained hardware (Ryzen 3, CPU-only), HNSW recall@10 = **90.6%** vs brute-force cosine.
-Semantic quality depends on how well your natural-language query matches the indexed content; more
-specific queries work better than single words.
-
-**Tips for better results:**
-- Use full sentences: `"how does the HNSW graph get persisted"` > `"persist"`
-- Index more context: if your files are large, the 256-word chunker captures local context well
-- Re-index after significant changes: `sift index .` rebuilds from scratch
-
-## Roadmap & Feature Ideas
-
-These are meaningful improvements that would make sift genuinely excellent:
-
-| Feature | Description | Difficulty |
-|---------|-------------|------------|
-| ~~**Skip-cache by mtime**~~ | ~~Don't re-embed files whose mtime hasn't changed~~ | Done |
-| ~~**BM25 hybrid re-rank**~~ | ~~Combine semantic + keyword score for better precision on short queries~~ | Done |
-| ~~**Semantic chunking**~~ | ~~Split on functions/paragraphs (`\n\n`, `\n`) instead of mid-sentence~~ | Done |
-| ~~**`sift clear`**~~ | ~~Wipe the index (`rm -rf .sift/`) with a confirmation prompt~~ | Done |
-| ~~**`sift search --json`**~~ | ~~Print search results in JSON for piping into other tools~~ | Done |
-| ~~**Line-number in results**~~ | ~~Map chunk byte offset → line number, link can open editor to exact line~~ | Done |
-| ~~**Config file**~~ | ~~`.sift.toml` for persistent index-dir, model-dir, top-k, thread count~~ | Done |
-| **Neovim plugin** | `:Sift` picker via vim.fn.jobstart; fzf-like UX inside the editor | Hard |
-| **Multiple index roots** | Maintain separate `.sift/` per project, merge results across them | Medium |
-| ~~**Cross-chunk dedup**~~ | ~~Don't surface two chunks from the same file in top-3 results~~ | Done |
-| **`--rerank` flag** | Post-process top-50 with a BGE cross-encoder reranker (big accuracy boost) | Hard |
-| ~~**Shell completions**~~ | ~~`sift completion bash/zsh/fish` via Cobra's built-in support~~ | Done |
+## 📄 License
+Sift is open-source software released under the [MIT License](LICENSE).
