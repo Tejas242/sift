@@ -134,12 +134,12 @@ func Load(path string) (*Graph, error) {
 		efSearch:       efSearch,
 		rng:            rand.New(rand.NewSource(42)),
 	}
-	import_ml(g)
+	recalculateML(g)
 	return g, nil
 }
 
-// import_ml recalculates the level factor from m (needed after deserialization).
-func import_ml(g *Graph) {
+// recalculateML recalculates the level factor from m (needed after deserialization).
+func recalculateML(g *Graph) {
 	if g.m > 0 {
 		g.ml = 1.0 / math.Log(float64(g.m))
 	}
